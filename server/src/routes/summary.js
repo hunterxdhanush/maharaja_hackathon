@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const auth = require('../middleware/auth');
 
 const pool = new Pool({
   user: 'postgres',
@@ -12,12 +13,10 @@ const pool = new Pool({
 
 // @route   GET api/summary
 // @desc    Get summary data
-// @access  Private (assuming authentication will be added later)
-router.get('/', async (req, res) => {
+// @access  Private
+router.get('/', auth, async (req, res) => {
   try {
-    // Assuming user_id is available from authentication middleware
-    // For now, using a placeholder user_id = 1
-    const user_id = 1; 
+    const user_id = req.user.id; 
 
     // Total Income
     const incomeResult = await pool.query(
@@ -56,8 +55,12 @@ router.get('/', async (req, res) => {
     // Calculate Savings (Income - Expense)
     const savings = income - expense;
 
-    // For investments, we'll use a placeholder for now as there's no dedicated table/category
-    const investments = 0; // Placeholder
+    // Fetch total investments
+    const investmentsResult = await pool.query(
+      'SELECT COALESCE(SUM(current_value), 0) AS total_investments FROM investments WHERE user_id = $1',
+      [user_id]
+    );
+    const investments = parseFloat(investmentsResult.rows[0].total_investments);
 
     res.json({
       income,
